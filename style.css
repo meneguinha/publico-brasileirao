@@ -730,8 +730,24 @@ select option { background: #0d1f4a; color: var(--text-primary); }
 .perf-desc {
   font-size: 0.78rem;
   color: var(--text-muted);
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.6rem;
   line-height: 1.5;
+}
+
+.perf-explainer {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.45;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.perf-explainer strong {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .perf-grid {
