@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Estimador de público pagante e renda para partidas do Campeonato Brasileiro Série A, powered por Machine Learning." />
+  <title>Preditor Brasileirão ⚽</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ░░ PARTICLE CANVAS ░░ -->
+  <canvas id="particleCanvas" aria-hidden="true"></canvas>
+
+  <!-- ░░ CONFETTI CONTAINER ░░ -->
+  <div id="confettiContainer" aria-hidden="true"></div>
+
+  <!-- ░░ HEADER ░░ -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-badge">⚽</div>
+        <div class="brand-text">
+          <span class="brand-title">Preditor Brasileirão</span>
+          <span class="brand-sub">Série A — Estimador por ML</span>
+        </div>
+      </div>
+      <div class="model-pill" id="modelPill">
+        <span class="pill-dot"></span>
+        <span id="modelInfo">Conectando à API…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ░░ HERO ░░ -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">Estime o jogo antes de<br/><span class="highlight">ele acontecer</span></h1>
+      <p class="hero-sub">Insira os dados da partida e nosso modelo de Machine Learning prevê o público pagante e a renda estimada.</p>
+    </div>
+    <div class="hero-decoration" aria-hidden="true">
+      <div class="deco-circle deco-1"></div>
+      <div class="deco-circle deco-2"></div>
+      <div class="deco-circle deco-3"></div>
+    </div>
+  </section>
+
+  <!-- ░░ MAIN ░░ -->
+  <main class="main-container">
+
+    <!-- ── CARD DO FORMULÁRIO ────────────────────────────────── -->
+    <section class="card form-card" aria-label="Formulário de predição">
+      <div class="card-header">
+        <span class="card-icon">🎯</span>
+        <h2 class="card-title">Dados da Partida</h2>
+      </div>
+
+      <form id="predictionForm" novalidate>
+
+        <!-- Times -->
+        <div class="form-row two-cols">
+          <div class="form-group">
+            <label for="mandante" class="form-label">🏠 Time Mandante</label>
+            <div class="select-wrapper">
+              <select id="mandante" name="mandante" required>
+                <option value="" disabled selected>Carregando times…</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="visitante" class="form-label">✈️ Time Visitante</label>
+            <div class="select-wrapper">
+              <select id="visitante" name="visitante" required>
+                <option value="" disabled selected>Selecione o mandante primeiro</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dia / Horário / Ano -->
+        <div class="form-row three-cols">
+          <div class="form-group">
+            <label for="diaSemana" class="form-label">📅 Dia da Semana</label>
+            <div class="select-wrapper">
+              <select id="diaSemana" name="diaSemana" required>
+                <option value="" disabled selected>Escolha o dia</option>
+                <option value="Segunda-feira">Segunda-feira</option>
+                <option value="Terça-feira">Terça-feira</option>
+                <option value="Quarta-feira">Quarta-feira</option>
+                <option value="Quinta-feira">Quinta-feira</option>
+                <option value="Sexta-feira">Sexta-feira</option>
+                <option value="Sábado">Sábado</option>
+                <option value="Domingo">Domingo</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="hora" class="form-label">🕐 Horário</label>
+            <div class="select-wrapper">
+              <select id="hora" name="hora" required>
+                <option value="" disabled selected>Carregando…</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="ano" class="form-label">📆 Ano</label>
+            <input
+              type="number"
+              id="ano"
+              name="ano"
+              min="2018"
+              max="2035"
+              value="2026"
+              class="form-input"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- Botão -->
+        <button type="submit" id="submitBtn" class="btn-primary" onclick="rippleEffect(event)">
+          <span class="btn-label">🔮 Calcular Estimativa</span>
+          <span class="btn-loader" aria-hidden="true"></span>
+          <span class="btn-shimmer" aria-hidden="true"></span>
+        </button>
+
+      </form>
+    </section>
+
+    <!-- ── CARD DE RESULTADO ──────────────────────────────────── -->
+    <section class="card result-card" id="resultCard" aria-live="polite" aria-label="Resultado da predição" hidden>
+
+      <!-- Cabeçalho do resultado -->
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h2 class="card-title">Estimativa do Jogo</h2>
+      </div>
+
+      <div class="match-title" id="matchTitle"><!-- preenchido via JS --></div>
+      <div class="match-meta" id="matchMeta"><!-- preenchido via JS --></div>
+
+      <!-- Métricas principais -->
+      <div class="metrics-grid">
+        <div class="metric-card metric-green" data-tilt>
+          <div class="metric-icon">👥</div>
+          <div class="metric-label">Público Estimado</div>
+          <div class="metric-value" id="metricPublico" data-raw="0">—</div>
+          <div class="metric-unit">pagantes</div>
+        </div>
+        <div class="metric-card metric-yellow" data-tilt>
+          <div class="metric-icon">💰</div>
+          <div class="metric-label">Renda Estimada</div>
+          <div class="metric-value" id="metricRenda" data-raw="0">—</div>
+          <div class="metric-unit">reais</div>
+        </div>
+      </div>
+
+      <!-- Contexto histórico -->
+      <div class="historical-section">
+        <div class="historical-title">📈 Comparativo com Média Histórica do Mandante</div>
+        <div class="historical-grid">
+          <div class="historical-item">
+            <span class="hist-label">Público médio hist.</span>
+            <span class="hist-value" id="histPublico">—</span>
+          </div>
+          <div class="historical-item">
+            <span class="hist-label">Renda média hist.</span>
+            <span class="hist-value" id="histRenda">—</span>
+          </div>
+        </div>
+        <div class="delta-banner" id="deltaBanner"><!-- preenchido via JS --></div>
+      </div>
+
+    </section>
+
+    <!-- ── CARD DE ERRO ─────────────────────────────────────────── -->
+    <div class="error-toast" id="errorToast" role="alert" hidden>
+      <span class="error-icon">⚠️</span>
+      <span id="errorMsg">Erro ao conectar com a API.</span>
+    </div>
+
+  </main>
+
+  <!-- ░░ FOOTER ░░ -->
+  <footer class="site-footer">
+    <p>Preditor Brasileirão · Modelo treinado com dados históricos do Brasileirão Série A</p>
+    <p>Desenvolvido com ❤️ · <a href="https://huggingface.co" target="_blank" rel="noopener">API no Hugging Face Spaces</a></p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
