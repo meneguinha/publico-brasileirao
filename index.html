@@ -189,6 +189,52 @@
       <span id="errorMsg">Erro ao conectar com a API.</span>
     </div>
 
+    <!-- ── CARD DE MÉTRICAS DO MODELO ────────────────────────────── -->
+    <section class="card perf-card" id="perfCard" hidden aria-label="Performance do modelo">
+      <div class="card-header">
+        <span class="card-icon">📐</span>
+        <h2 class="card-title">Performance do Modelo</h2>
+        <span class="perf-badge">Hold-out 20%</span>
+      </div>
+      <p class="perf-desc">Métricas avaliadas em 20% dos dados não vistos durante o treinamento.</p>
+
+      <div class="perf-grid">
+        <!-- Público -->
+        <div class="perf-item">
+          <div class="perf-model-label">👥 Público Pagante</div>
+          <div class="perf-row">
+            <div class="perf-stat">
+              <span class="perf-stat-label">R²</span>
+              <span class="perf-stat-value" id="perfR2Pub">—</span>
+              <div class="perf-bar-wrap"><div class="perf-bar perf-bar-green" id="barR2Pub"></div></div>
+            </div>
+            <div class="perf-stat">
+              <span class="perf-stat-label">MAE</span>
+              <span class="perf-stat-value" id="perfMaePub">—</span>
+              <span class="perf-stat-unit">pagantes</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Renda -->
+        <div class="perf-item">
+          <div class="perf-model-label">💰 Renda</div>
+          <div class="perf-row">
+            <div class="perf-stat">
+              <span class="perf-stat-label">R²</span>
+              <span class="perf-stat-value" id="perfR2Rend">—</span>
+              <div class="perf-bar-wrap"><div class="perf-bar perf-bar-yellow" id="barR2Rend"></div></div>
+            </div>
+            <div class="perf-stat">
+              <span class="perf-stat-label">MAE</span>
+              <span class="perf-stat-value" id="perfMaeRend">—</span>
+              <span class="perf-stat-unit">reais</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ░░ FOOTER ░░ -->

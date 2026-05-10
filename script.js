@@ -245,6 +245,9 @@ async function init() {
     populateSelect(horaEl, horarios, "Escolha o horário…");
     visitanteEl.innerHTML = `<option value="" disabled selected>Selecione o mandante primeiro</option>`;
 
+    // Busca métricas de performance (silencioso — não bloqueia o init)
+    fetchMetricas();
+
   } catch (err) {
     console.error("[init]", err);
     modelInfoEl.textContent = "API offline";
@@ -256,7 +259,44 @@ async function init() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 8. EVENT LISTENERS
+// 8. FETCH & RENDER MÉTRICAS
+// ═══════════════════════════════════════════════════════════
+async function fetchMetricas() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/metricas`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.publico.r2 !== null) renderMetricas(data);
+  } catch (_) {
+    // Falha silenciosa — métricas são opcionais
+  }
+}
+
+function renderMetricas(data) {
+  const perfCard = document.getElementById("perfCard");
+
+  // R² Público
+  const r2Pub = data.publico.r2;
+  document.getElementById("perfR2Pub").textContent = r2Pub.toFixed(4);
+  document.getElementById("perfMaePub").textContent = fmtInt(data.publico.mae);
+
+  // R² Renda
+  const r2Rend = data.renda.r2;
+  document.getElementById("perfR2Rend").textContent = r2Rend.toFixed(4);
+  document.getElementById("perfMaeRend").textContent = fmtBRL(data.renda.mae);
+
+  // Mostra card
+  perfCard.hidden = false;
+
+  // Anima barras de R² (com pequeno delay para o CSS transition funcionar)
+  setTimeout(() => {
+    document.getElementById("barR2Pub").style.width  = `${Math.max(0, r2Pub  * 100).toFixed(1)}%`;
+    document.getElementById("barR2Rend").style.width = `${Math.max(0, r2Rend * 100).toFixed(1)}%`;
+  }, 120);
+}
+
+// ═══════════════════════════════════════════════════════════
+// 9. EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════
 mandanteEl.addEventListener("change", () => {
   const mandante = mandanteEl.value;
