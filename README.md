@@ -12,7 +12,7 @@ O projeto é dividido em dois ambientes independentes:
 
 ### 1. Frontend (Interface do Usuário)
 - **Tecnologias:** HTML5 puro, CSS3 Vanilla e JavaScript.
-- **Hospedagem:** [GitHub Pages](https://github.com/fmenegottobr) (adicione seu link aqui).
+- **Hospedagem:** [GitHub Pages](https://publicobrasileirao.fmind.app/)
 - **Destaques Visuais:** Design responsivo, paleta de cores inspirada na CBF, cards de métricas com efeito tilt 3D interativo, animações de progresso e um sistema de partículas em Canvas para um visual premium.
 - **Comunicação:** Faz requisições HTTP estritamente assíncronas (`fetch()`) para o backend.
 
