@@ -1,68 +1,93 @@
 # Preditor Brasileirão ⚽
 
-Uma aplicação web full-stack movida a Machine Learning que estima o **público pagante** e a **renda bruta** de partidas do Campeonato Brasileiro Série A.
+🌐 **Acesse:** [publicobrasileirao.felipemenegotto.com.br](https://publicobrasileirao.felipemenegotto.com.br/)
 
-A arquitetura do projeto foi desenvolvida de forma moderna e totalmente desacoplada, utilizando **GitHub Pages** para o Frontend interativo e **Hugging Face Spaces** para hospedar a API de inteligência artificial.
+Aplicação web movida a Machine Learning que estima o **público pagante** de partidas do Campeonato Brasileiro Série A.
+
+O projeto é desacoplado: o **frontend** fica no **GitHub Pages**, com domínio próprio, e a **API do modelo** roda no **Hugging Face Spaces**.
 
 ---
 
 ## 🏗️ Arquitetura do Projeto
 
-O projeto é dividido em dois ambientes independentes:
-
 ### 1. Frontend (Interface do Usuário)
-- **Tecnologias:** HTML5 puro, CSS3 Vanilla e JavaScript.
-- **Hospedagem:** [GitHub Pages](https://github.com/fmenegottobr) (adicione seu link aqui).
-- **Destaques Visuais:** Design responsivo, paleta de cores inspirada na CBF, cards de métricas com efeito tilt 3D interativo, animações de progresso e um sistema de partículas em Canvas para um visual premium.
-- **Comunicação:** Faz requisições HTTP estritamente assíncronas (`fetch()`) para o backend.
+- **Tecnologias:** HTML5, CSS3 e JavaScript puros, sem frameworks.
+- **Hospedagem:** GitHub Pages, no endereço [publicobrasileirao.felipemenegotto.com.br](https://publicobrasileirao.felipemenegotto.com.br/).
+- **Destaques visuais:** design responsivo, paleta inspirada na CBF, cards com efeito tilt 3D, contadores animados e partículas em Canvas.
+- **Comunicação:** requisições assíncronas (`fetch()`) para a API.
 
 ### 2. Backend (API de Machine Learning)
-- **Tecnologias:** Python 3.11, FastAPI, Uvicorn, Pandas e Scikit-learn.
-- **Hospedagem:** [Hugging Face Spaces - Docker](https://fmenegottobr-preditor-brasileirao.hf.space/).
-- **O Modelo:** Utiliza o algoritmo **Gradient Boosting Regressor**, treinado com o histórico de jogos do Brasileirão para entender o peso das variáveis como dia da semana, clássicos, horário e popularidade do time mandante.
-- **Resiliência:** A API possui um mecanismo inteligente de fallback. Caso o modelo binário compilado (`.pkl`) não exista no container, a própria API carrega a planilha de dados (`consolidado_formatado.xlsx`), divide a amostragem para gerar métricas de confiabilidade, treina as árvores de decisão em tempo real e armazena o novo modelo.
+- **Tecnologias:** Python 3.11, FastAPI, Uvicorn, Pandas e CatBoost.
+- **Hospedagem:** [Hugging Face Spaces (Docker)](https://fmenegottobr-preditor-brasileirao.hf.space/).
+- **O modelo (v2):** média de dois modelos **CatBoost**, um treinado no logaritmo do público e outro no público direto. Foi treinado com 2.599 jogos do Brasileirão (2018, 2019 e 2022 a 2026).
+- **Variáveis usadas:** mandante e visitante, estádio, data, horário, dia da semana, feriados, clássicos, rodada e situação dos dois times na tabela antes do jogo. A situação inclui posição, pontos, forma nos últimos jogos, distância para o líder, para o G-4/G-6 e para o Z-4, e chances matemáticas na reta final. Também entra o histórico de público e de preço médio do ingresso do mandante.
+- **Sem dados manuais:** o usuário informa só o jogo. A API calcula tabela, forma e histórico a partir dos resultados e públicos já registrados, usando apenas jogos anteriores à data informada.
 
 ---
 
 ## 🔌 API e Endpoints
 
-A API está publicamente acessível e processa o modelo preditivo através dos seguintes endpoints principais:
+* `GET /`: saúde da API e informações do modelo (versão, nº de jogos de treino, anos).
+* `GET /opcoes`: clubes, estádios e estádio padrão de cada clube, usados para montar os seletores do formulário.
+* `GET /metricas`: erros medidos em temporadas que o modelo não viu no treino.
+* `POST /prever`: recebe o jogo e devolve o público previsto e a faixa típica.
 
-* `GET /` — Verificação de saúde da API e status do carregamento do modelo.
-* `GET /times` — Retorna os times mapeados no vocabulário do modelo.
-* `GET /horarios` — Retorna as faixas de horários conhecidas.
-* `GET /metricas` — Retorna os níveis de precisão (R² e MAE) calculados pela métrica _hold-out_ durante o treinamento do modelo.
-* `POST /predict` — Recebe o payload do jogo (`mandante`, `visitante`, `dia_semana`, `hora`, `ano`) e retorna as estimativas calculadas pela IA, bem como comparações matemáticas com as médias históricas.
+Exemplo de chamada:
+
+```json
+POST /prever
+{
+  "mandante": "Grêmio",
+  "visitante": "Palmeiras",
+  "data": "2026-11-15",
+  "hora": "16:00",
+  "estadio": "Arena do Grêmio",
+  "rodada": 35
+}
+```
+
+`mandante`, `visitante` e `data` (AAAA-MM-DD) são obrigatórios. `hora`, `estadio` e `rodada` são opcionais, mas sem o estádio a previsão fica bem menos precisa. Clube desconhecido, mandante igual ao visitante ou data inválida retornam **400**.
+
+---
+
+## 📈 Desempenho do Modelo
+
+Medido em jogos que o modelo não tinha visto no treino: cada temporada foi prevista por um modelo treinado só com as anteriores. No total são 718 jogos (2025 e 2026).
+
+| Métrica | Valor |
+|---|---|
+| Erro médio (MAE) | ~6.083 pagantes por jogo |
+| Erro típico (erro % mediano) | 23,2% |
+| R² | 0,72 |
+
+- **Erro médio:** quantos pagantes a previsão erra, em média, por jogo.
+- **Erro típico:** o erro percentual de um jogo comum. Metade dos jogos erra menos que isso. A **faixa típica** mostrada no site é a previsão ± esse percentual.
+- **R²:** quanto da variação de público o modelo explica. Varia de 0 a 1; quanto mais perto de 1, melhor.
 
 ---
 
 ## 🚀 Como testar localmente
 
-Se você deseja rodar a aplicação no seu computador:
-
-1. **Backend:**
-   Navegue até a pasta `backend-huggingface/` e execute:
+1. **Backend:** na pasta `backend-huggingface/`, execute:
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt -r modelo_v2/requirements.txt
    uvicorn app:app --reload
    ```
 
-2. **Frontend:**
-   Navegue até a pasta `frontend-githubpages/` e inicie um servidor HTTP local:
+2. **Frontend:** na pasta `frontend-githubpages/`, inicie um servidor HTTP local:
    ```bash
    python -m http.server 8080
    ```
-   Acesse no navegador: `http://localhost:8080`
-
-*Observação: A URL base da API no frontend (`script.js`) deve ser ajustada para `http://localhost:8000` caso queira realizar requisições locais.*
+   Para usar a API local sem editar o código, acesse:
+   `http://localhost:8080/?api=http://localhost:8000`
 
 ---
 
-## 📈 Entendendo a Performance
+## ⚠️ Limitações
 
-O modelo calcula duas métricas estatísticas essenciais exibidas no painel frontal:
-- **R² (R-quadrado):** Mede o quão bem o modelo explica as variações de público e renda. Varia de 0 a 1; mais perto de 1 indica um modelo excelente.
-- **MAE (Erro Médio Absoluto):** Expressa, na prática, a margem de erro estimada pelo sistema (ex: erro de +/- 2.500 pagantes por previsão).
+- A situação dos times na tabela vem dos resultados registrados nos dados da API, que vão até **06/11/2026**. Se os dados não forem atualizados, previsões de jogos posteriores usam essa tabela.
+- Clubes que nunca jogaram a Série A entre 2018 e 2026 não são aceitos.
+- O modelo prevê apenas o público pagante; a renda não é estimada.
 
 ---
 *Projeto desenvolvido como ferramenta analítica baseada em dados históricos.*
