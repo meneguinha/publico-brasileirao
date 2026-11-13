@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Estimador de público pagante e renda para partidas do Campeonato Brasileiro Série A, powered por Machine Learning." />
+  <meta name="description" content="Estimador de público pagante para partidas do Campeonato Brasileiro Série A, powered por Machine Learning." />
   <title>Preditor Brasileirão ⚽</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -39,7 +39,7 @@
   <section class="hero">
     <div class="hero-content">
       <h1 class="hero-title">Estime o jogo antes de<br/><span class="highlight">ele acontecer</span></h1>
-      <p class="hero-sub">Insira os dados da partida e nosso modelo de Machine Learning prevê o público pagante e a renda estimada.</p>
+      <p class="hero-sub">Insira os dados da partida e nosso modelo de Machine Learning prevê o público pagante, levando em conta a situação dos times na tabela.</p>
     </div>
     <div class="hero-decoration" aria-hidden="true">
       <div class="deco-circle deco-1"></div>
@@ -83,47 +83,34 @@
           </div>
         </div>
 
-        <!-- Dia / Horário / Ano -->
-        <div class="form-row three-cols">
+        <!-- Data / Horário -->
+        <div class="form-row two-cols">
           <div class="form-group">
-            <label for="diaSemana" class="form-label">📅 Dia da Semana</label>
-            <div class="select-wrapper">
-              <select id="diaSemana" name="diaSemana" required>
-                <option value="" disabled selected>Escolha o dia</option>
-                <option value="Segunda-feira">Segunda-feira</option>
-                <option value="Terça-feira">Terça-feira</option>
-                <option value="Quarta-feira">Quarta-feira</option>
-                <option value="Quinta-feira">Quinta-feira</option>
-                <option value="Sexta-feira">Sexta-feira</option>
-                <option value="Sábado">Sábado</option>
-                <option value="Domingo">Domingo</option>
-              </select>
-              <span class="select-arrow">▾</span>
-            </div>
+            <label for="data" class="form-label">📅 Data do Jogo</label>
+            <input type="date" id="data" name="data" class="form-input" style="color-scheme: dark" required />
           </div>
 
           <div class="form-group">
             <label for="hora" class="form-label">🕐 Horário</label>
+            <input type="time" id="hora" name="hora" value="16:00" class="form-input" style="color-scheme: dark" />
+          </div>
+        </div>
+
+        <!-- Estádio / Rodada -->
+        <div class="form-row two-cols">
+          <div class="form-group">
+            <label for="estadio" class="form-label">🏟️ Estádio</label>
             <div class="select-wrapper">
-              <select id="hora" name="hora" required>
-                <option value="" disabled selected>Carregando…</option>
+              <select id="estadio" name="estadio">
+                <option value="">Carregando estádios…</option>
               </select>
               <span class="select-arrow">▾</span>
             </div>
           </div>
 
           <div class="form-group">
-            <label for="ano" class="form-label">📆 Ano</label>
-            <input
-              type="number"
-              id="ano"
-              name="ano"
-              min="2018"
-              max="2035"
-              value="2026"
-              class="form-input"
-              required
-            />
+            <label for="rodada" class="form-label">🔢 Rodada (opcional)</label>
+            <input type="number" id="rodada" name="rodada" min="1" max="38" placeholder="Automática" class="form-input" />
           </div>
         </div>
 
@@ -158,27 +145,11 @@
           <div class="metric-unit">pagantes</div>
         </div>
         <div class="metric-card metric-yellow" data-tilt>
-          <div class="metric-icon">💰</div>
-          <div class="metric-label">Renda Estimada</div>
-          <div class="metric-value" id="metricRenda" data-raw="0">—</div>
-          <div class="metric-unit">reais</div>
+          <div class="metric-icon">📏</div>
+          <div class="metric-label">Faixa Típica</div>
+          <div class="metric-value" id="metricFaixa">—</div>
+          <div class="metric-unit">metade dos jogos cai nessa faixa</div>
         </div>
-      </div>
-
-      <!-- Contexto histórico -->
-      <div class="historical-section">
-        <div class="historical-title">📈 Comparativo com Média Histórica do Mandante</div>
-        <div class="historical-grid">
-          <div class="historical-item">
-            <span class="hist-label">Público médio hist.</span>
-            <span class="hist-value" id="histPublico">—</span>
-          </div>
-          <div class="historical-item">
-            <span class="hist-label">Renda média hist.</span>
-            <span class="hist-value" id="histRenda">—</span>
-          </div>
-        </div>
-        <div class="delta-banner" id="deltaBanner"><!-- preenchido via JS --></div>
       </div>
 
     </section>
@@ -194,48 +165,14 @@
       <div class="card-header">
         <span class="card-icon">📐</span>
         <h2 class="card-title">Performance do Modelo</h2>
-        <span class="perf-badge">Hold-out 20%</span>
+        <span class="perf-badge">Jogos não vistos</span>
       </div>
-      <p class="perf-desc">Métricas avaliadas em 20% dos dados não vistos durante o treinamento.</p>
+      <p class="perf-desc">Medido em jogos que o modelo não tinha visto no treino.</p>
       <div class="perf-explainer">
-        Modelo baseado em <strong>Gradient Boosting Regressor</strong>. O <strong>R²</strong> indica o grau de confiabilidade geral da previsão (mais próximo de 1 é melhor), enquanto o <strong>MAE</strong> representa a margem de erro média esperada em cada predição (em pagantes ou reais).
+        Modelo v2: média de dois modelos <strong>CatBoost</strong> que usam a situação dos times na tabela, a forma recente, o estádio e o histórico de público. O <strong>erro médio</strong> é quantos pagantes a previsão erra, em média, por jogo; o <strong>erro típico</strong> é o erro percentual de um jogo comum; o <strong>R²</strong> indica quanto da variação de público o modelo explica (mais perto de 1 é melhor).
       </div>
 
-      <div class="perf-grid">
-        <!-- Público -->
-        <div class="perf-item">
-          <div class="perf-model-label">👥 Público Pagante</div>
-          <div class="perf-row">
-            <div class="perf-stat">
-              <span class="perf-stat-label">R²</span>
-              <span class="perf-stat-value" id="perfR2Pub">—</span>
-              <div class="perf-bar-wrap"><div class="perf-bar perf-bar-green" id="barR2Pub"></div></div>
-            </div>
-            <div class="perf-stat">
-              <span class="perf-stat-label">MAE</span>
-              <span class="perf-stat-value" id="perfMaePub">—</span>
-              <span class="perf-stat-unit">pagantes</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Renda -->
-        <div class="perf-item">
-          <div class="perf-model-label">💰 Renda</div>
-          <div class="perf-row">
-            <div class="perf-stat">
-              <span class="perf-stat-label">R²</span>
-              <span class="perf-stat-value" id="perfR2Rend">—</span>
-              <div class="perf-bar-wrap"><div class="perf-bar perf-bar-yellow" id="barR2Rend"></div></div>
-            </div>
-            <div class="perf-stat">
-              <span class="perf-stat-label">MAE</span>
-              <span class="perf-stat-value" id="perfMaeRend">—</span>
-              <span class="perf-stat-unit">reais</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div class="perf-grid" id="perfGrid"><!-- preenchido via JS --></div>
     </section>
 
   </main>

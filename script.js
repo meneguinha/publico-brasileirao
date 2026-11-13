@@ -6,16 +6,22 @@
    Substitua API_BASE_URL pela URL real do seu HF Space.
    ═══════════════════════════════════════════════════════ */
 
-const API_BASE_URL = "https://fmenegottobr-preditor-brasileirao.hf.space";
+// Para testar localmente sem editar o arquivo: abra a página com ?api=http://localhost:8000
+const API_BASE_URL =
+  new URLSearchParams(window.location.search).get("api") ||
+  "https://fmenegottobr-preditor-brasileirao.hf.space";
 
-// ─── Cache ───────────────────────────────────────────────
-let allTeams = [];
-let horarios  = [];
+// ─── Cache (preenchido por GET /opcoes) ──────────────────
+let allTeams      = [];
+let estadioPadrao = {};
 
 // ─── Refs DOM ─────────────────────────────────────────────
 const mandanteEl  = document.getElementById("mandante");
 const visitanteEl = document.getElementById("visitante");
+const dataEl      = document.getElementById("data");
 const horaEl      = document.getElementById("hora");
+const estadioEl   = document.getElementById("estadio");
+const rodadaEl    = document.getElementById("rodada");
 const modelInfoEl = document.getElementById("modelInfo");
 const submitBtn   = document.getElementById("submitBtn");
 const resultCard  = document.getElementById("resultCard");
@@ -182,14 +188,6 @@ function fmtInt(n) {
   return new Intl.NumberFormat("pt-BR").format(Math.round(n));
 }
 
-function fmtBRL(n) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-  }).format(n);
-}
-
 function populateSelect(el, items, placeholder = "Selecione…") {
   el.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
   items.forEach((item) => {
@@ -215,35 +213,48 @@ function setLoading(active) {
 // ═══════════════════════════════════════════════════════════
 // 7. API INIT
 // ═══════════════════════════════════════════════════════════
+function hojeISO() {
+  const d = new Date();
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d - off).toISOString().slice(0, 10);
+}
+
+function preencherEstadio() {
+  const padrao = estadioPadrao[mandanteEl.value];
+  estadioEl.value = padrao || "";
+}
+
 async function init() {
+  dataEl.value = hojeISO();
   try {
-    const [healthRes, timesRes, horariosRes] = await Promise.all([
+    const [healthRes, opcoesRes] = await Promise.all([
       fetch(`${API_BASE_URL}/`),
-      fetch(`${API_BASE_URL}/times`),
-      fetch(`${API_BASE_URL}/horarios`),
+      fetch(`${API_BASE_URL}/opcoes`),
     ]);
 
-    if (!healthRes.ok || !timesRes.ok || !horariosRes.ok) {
+    if (!healthRes.ok || !opcoesRes.ok) {
       throw new Error("Falha ao buscar dados da API.");
     }
 
-    const health       = await healthRes.json();
-    const timesData    = await timesRes.json();
-    const horariosData = await horariosRes.json();
+    const health = await healthRes.json();
+    const opcoes = await opcoesRes.json();
 
-    allTeams = timesData.times;
-    horarios  = horariosData.horarios;
+    allTeams      = opcoes.clubes;
+    estadioPadrao = opcoes.estadio_padrao || {};
 
-    if (health.modelo && health.modelo.n_jogos != null) {
+    const m = health.modelo || {};
+    if (m.jogos_treino != null) {
       modelInfoEl.textContent =
-        `${health.modelo.n_jogos.toLocaleString("pt-BR")} jogos · ${health.modelo.ano_min}–${health.modelo.ano_max}`;
+        `Modelo ${m.versao || ""} · ${m.jogos_treino.toLocaleString("pt-BR")} jogos`;
     } else {
       modelInfoEl.textContent = "Modelo conectado";
     }
 
     populateSelect(mandanteEl, allTeams, "Escolha o mandante…");
-    populateSelect(horaEl, horarios, "Escolha o horário…");
     visitanteEl.innerHTML = `<option value="" disabled selected>Selecione o mandante primeiro</option>`;
+    populateSelect(estadioEl, opcoes.estadios, "Não informado");
+    estadioEl.options[0].disabled = false;   // estádio é opcional
+    estadioEl.value = "";
 
     // Busca métricas de performance (silencioso — não bloqueia o init)
     fetchMetricas();
@@ -266,7 +277,7 @@ async function fetchMetricas() {
     const res = await fetch(`${API_BASE_URL}/metricas`);
     if (!res.ok) return;
     const data = await res.json();
-    if (data.publico.r2 !== null) renderMetricas(data);
+    if (data.testes && Object.keys(data.testes).length) renderMetricas(data);
   } catch (_) {
     // Falha silenciosa — métricas são opcionais
   }
@@ -274,24 +285,48 @@ async function fetchMetricas() {
 
 function renderMetricas(data) {
   const perfCard = document.getElementById("perfCard");
+  const grid     = document.getElementById("perfGrid");
+  const testes   = Object.values(data.testes);
 
-  // R² Público
-  const r2Pub = data.publico.r2;
-  document.getElementById("perfR2Pub").textContent = r2Pub.toFixed(4);
-  document.getElementById("perfMaePub").textContent = fmtInt(data.publico.mae);
+  // Um número geral, sem separar por temporada: média dos testes ponderada pelo nº de jogos
+  const jogos = testes.reduce((s, t) => s + t.jogos, 0);
+  const mae   = testes.reduce((s, t) => s + t.mae * t.jogos, 0) / jogos;
+  const r2    = testes.reduce((s, t) => s + t.r2  * t.jogos, 0) / jogos;
+  // Erro % típico: o mesmo valor que a API usa para calcular a faixa típica
+  const erroPct = data.erro_pct_mediano != null
+    ? data.erro_pct_mediano
+    : Math.max(...testes.map((t) => t.erro_pct_mediano));
 
-  // R² Renda
-  const r2Rend = data.renda.r2;
-  document.getElementById("perfR2Rend").textContent = r2Rend.toFixed(4);
-  document.getElementById("perfMaeRend").textContent = fmtBRL(data.renda.mae);
+  grid.innerHTML = "";
+  const item = document.createElement("div");
+  item.className = "perf-item";
+  item.style.gridColumn = "1 / -1";
+  item.innerHTML = `
+    <div class="perf-model-label">👥 Público Pagante · ${fmtInt(jogos)} jogos testados</div>
+    <div class="perf-row">
+      <div class="perf-stat">
+        <span class="perf-stat-label">Erro médio</span>
+        <span class="perf-stat-value">${fmtInt(mae)}</span>
+        <span class="perf-stat-unit">pagantes por jogo</span>
+      </div>
+      <div class="perf-stat">
+        <span class="perf-stat-label">Erro típico</span>
+        <span class="perf-stat-value">${erroPct.toFixed(1).replace(".", ",")}%</span>
+        <span class="perf-stat-unit">metade dos jogos erra menos que isso</span>
+      </div>
+      <div class="perf-stat">
+        <span class="perf-stat-label">R²</span>
+        <span class="perf-stat-value">${r2.toFixed(2).replace(".", ",")}</span>
+        <div class="perf-bar-wrap"><div class="perf-bar perf-bar-green" data-w="${Math.max(0, r2 * 100).toFixed(1)}"></div></div>
+      </div>
+    </div>`;
+  grid.appendChild(item);
 
-  // Mostra card
   perfCard.hidden = false;
 
   // Anima barras de R² (com pequeno delay para o CSS transition funcionar)
   setTimeout(() => {
-    document.getElementById("barR2Pub").style.width  = `${Math.max(0, r2Pub  * 100).toFixed(1)}%`;
-    document.getElementById("barR2Rend").style.width = `${Math.max(0, r2Rend * 100).toFixed(1)}%`;
+    grid.querySelectorAll(".perf-bar").forEach((b) => { b.style.width = `${b.dataset.w}%`; });
   }, 120);
 }
 
@@ -299,9 +334,12 @@ function renderMetricas(data) {
 // 9. EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════
 mandanteEl.addEventListener("change", () => {
-  const mandante = mandanteEl.value;
+  const mandante  = mandanteEl.value;
+  const anterior  = visitanteEl.value;
   const filtrados = allTeams.filter((t) => t !== mandante);
   populateSelect(visitanteEl, filtrados, "Escolha o visitante…");
+  if (anterior && anterior !== mandante) visitanteEl.value = anterior;
+  preencherEstadio();
   resultCard.hidden = true;
   hideError();
 });
@@ -312,16 +350,22 @@ document.getElementById("predictionForm").addEventListener("submit", async (e) =
 
   const mandante  = mandanteEl.value;
   const visitante = visitanteEl.value;
-  const hora      = horaEl.value;
-  const diaSemana = document.getElementById("diaSemana").value;
-  const ano       = parseInt(document.getElementById("ano").value, 10);
+  const data      = dataEl.value;
+  const hora      = horaEl.value || null;
+  const estadio   = estadioEl.value || null;
+  const rodadaTxt = rodadaEl.value.trim();
+  const rodada    = rodadaTxt ? parseInt(rodadaTxt, 10) : null;
 
-  if (!mandante || !visitante || !hora || !diaSemana || !ano) {
-    showError("Por favor, preencha todos os campos antes de calcular.");
+  if (!mandante || !visitante || !data) {
+    showError("Preencha mandante, visitante e data antes de calcular.");
     return;
   }
   if (mandante === visitante) {
     showError("O time mandante e visitante não podem ser iguais.");
+    return;
+  }
+  if (rodada !== null && (isNaN(rodada) || rodada < 1 || rodada > 38)) {
+    showError("A rodada deve ser um número de 1 a 38 (ou deixe em branco).");
     return;
   }
 
@@ -329,22 +373,25 @@ document.getElementById("predictionForm").addEventListener("submit", async (e) =
   resultCard.hidden = true;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/predict`, {
+    const response = await fetch(`${API_BASE_URL}/prever`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mandante, visitante, hora, dia_semana: diaSemana, ano }),
+      body: JSON.stringify({ mandante, visitante, data, hora, estadio, rodada }),
     });
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.detail || `Erro ${response.status} da API.`);
+      const detail  = Array.isArray(errData.detail)
+        ? errData.detail.map((d) => d.msg).join("; ")
+        : errData.detail;
+      throw new Error(detail || `Erro ${response.status} da API.`);
     }
 
-    const data = await response.json();
-    renderResult(data);
+    const resultado = await response.json();
+    renderResult(resultado, { mandante, visitante, data, hora, estadio, rodada });
 
   } catch (err) {
-    console.error("[predict]", err);
+    console.error("[prever]", err);
     showError(`Erro ao calcular: ${err.message}`);
   } finally {
     setLoading(false);
@@ -352,32 +399,23 @@ document.getElementById("predictionForm").addEventListener("submit", async (e) =
 });
 
 // ═══════════════════════════════════════════════════════════
-// 9. RENDER RESULT — with all effects
+// 10. RENDER RESULT — with all effects
 // ═══════════════════════════════════════════════════════════
-function renderResult(data) {
-  // Cabeçalho
-  document.getElementById("matchTitle").textContent = `${data.mandante} × ${data.visitante}`;
-  document.getElementById("matchMeta").textContent  = `${data.dia_semana} às ${data.hora} — ${data.ano}`;
+function renderResult(res, jogo) {
+  // Cabeçalho (só com o que o usuário informou)
+  document.getElementById("matchTitle").textContent = `${jogo.mandante} × ${jogo.visitante}`;
+  const dataBR = jogo.data.split("-").reverse().join("/");
+  const partes = [dataBR + (jogo.hora ? ` às ${jogo.hora}` : "")];
+  if (jogo.estadio) partes.push(jogo.estadio);
+  if (jogo.rodada != null) partes.push(`Rodada ${jogo.rodada}`);
+  document.getElementById("matchMeta").textContent = partes.join(" — ");
 
   // Métricas — placeholders antes da animação
   const publEl  = document.getElementById("metricPublico");
-  const rendaEl = document.getElementById("metricRenda");
-  publEl.textContent  = "0";
-  rendaEl.textContent = "R$ 0,00";
-
-  // Contexto histórico
-  document.getElementById("histPublico").textContent = `${fmtInt(data.avg_pub_hist)} pag.`;
-  document.getElementById("histRenda").textContent   = fmtBRL(data.avg_ren_hist);
-
-  // Delta
-  const deltaBanner = document.getElementById("deltaBanner");
-  if (data.delta_pub >= 0) {
-    deltaBanner.className = "delta-banner positive";
-    deltaBanner.innerHTML = `📈 Previsão <strong>${fmtInt(data.delta_pub)}</strong> pagantes acima da média histórica do mandante`;
-  } else {
-    deltaBanner.className = "delta-banner negative";
-    deltaBanner.innerHTML = `📉 Previsão <strong>${fmtInt(Math.abs(data.delta_pub))}</strong> pagantes abaixo da média histórica do mandante`;
-  }
+  const faixaEl = document.getElementById("metricFaixa");
+  publEl.textContent = "0";
+  const [faixaMin, faixaMax] = res.faixa_tipica;
+  faixaEl.textContent = `${fmtInt(faixaMin)} – ${fmtInt(faixaMax)}`;
 
   // Mostra card com animação
   resultCard.hidden = false;
@@ -387,18 +425,14 @@ function renderResult(data) {
   burstConfetti(65);
 
   // 🔢 Contador animado — público
-  animateCounter(publEl, data.publico_est, (v) => fmtInt(v), 1600);
-  // Adiciona glow no final do contador
+  animateCounter(publEl, res.publico_previsto, (v) => fmtInt(v), 1600);
   setTimeout(() => {
     publEl.classList.add("glow-green");
     setTimeout(() => publEl.classList.remove("glow-green"), 1900);
   }, 1650);
-
-  // 🔢 Contador animado — renda
-  animateCounter(rendaEl, data.renda_est, (v) => fmtBRL(v), 1800);
   setTimeout(() => {
-    rendaEl.classList.add("glow-yellow");
-    setTimeout(() => rendaEl.classList.remove("glow-yellow"), 1900);
+    faixaEl.classList.add("glow-yellow");
+    setTimeout(() => faixaEl.classList.remove("glow-yellow"), 1900);
   }, 1850);
 
   // Ativa tilt nos cards recém-exibidos
